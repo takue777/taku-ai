@@ -22,12 +22,9 @@ export default {
       );
     }
 
-    if (
-      request.headers.get("authorization") !==
-      `Bearer ${password}`
-    ) {
+    if (request.headers.get("authorization") !== `Bearer ${password}`) {
       return new Response(
-        JSON.stringify({ error: "Unauthorised." }),
+        JSON.stringify({ error: "Unauthorized." }),
         { status: 401, headers }
       );
     }
@@ -36,7 +33,10 @@ export default {
       const apiKey = process.env.OPENAI_API_KEY;
 
       if (!apiKey) {
-        throw new Error("OpenAI API key is not configured.");
+        return new Response(
+          JSON.stringify({ error: "OpenAI API key is not configured." }),
+          { status: 503, headers }
+        );
       }
 
       const body = await request.json();
@@ -104,8 +104,17 @@ export default {
         );
       }
 
+      const reply = (data.output || [])
+        .filter(item => item.type === "message")
+        .flatMap(item => item.content || [])
+        .filter(part => part.type === "output_text")
+        .map(part => part.text)
+        .join("\n");
+
       return new Response(
-        JSON.stringify({ reply: data.output_text || "No response received." }),
+        JSON.stringify({
+          reply: reply || "No response received."
+        }),
         { status: 200, headers }
       );
 
