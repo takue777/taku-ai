@@ -2,134 +2,327 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TAKU AI Trading</title>
-<style>
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  background: #101318;
-  color: #f1f3f5;
-  font-family: Arial, sans-serif;
-}
-header {
-  padding: 20px;
-  background: #191e27;
-  border-bottom: 1px solid #303744;
-}
-header h2 { margin: 0; color: #55c6a9; }
-header p { color: #929ba9; margin-bottom: 0; }
-main {
-  max-width: 750px;
-  margin: auto;
-  padding: 20px;
-}
-.status {
-  background: #191e27;
-  padding: 15px;
-  border-radius: 12px;
-  margin-bottom: 20px;
-}
-.status span { color: #55c6a9; }
-.chat {
-  min-height: 55vh;
-  padding: 15px;
-  background: #191e27;
-  border-radius: 12px;
-  overflow-y: auto;
-}
-.message {
-  padding: 13px;
-  margin: 12px 0;
-  border-radius: 12px;
-  line-height: 1.5;
-}
-.bot { background: #29313d; }
-.user { background: #155b4d; margin-left: 25px; }
-.controls {
-  display: flex;
-  gap: 8px;
-  margin-top: 15px;
-}
-input {
-  flex: 1;
-  min-width: 0;
-  padding: 14px;
-  border-radius: 10px;
-  border: 1px solid #3c4654;
-  background: #191e27;
-  color: white;
-}
-button {
-  background: #28a887;
-  color: white;
-  border: none;
-  padding: 14px;
-  border-radius: 10px;
-  font-weight: bold;
-}
-footer {
-  color: #8993a1;
-  font-size: 12px;
-  text-align: center;
-  padding: 20px;
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101318">
+  <title>TAKU AI Trading</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #101318;
+      color: #f1f3f5;
+      font-family: Arial, sans-serif;
+    }
+
+    header {
+      padding: 20px;
+      background: #191e27;
+      border-bottom: 1px solid #303744;
+    }
+
+    header h2 {
+      margin: 0;
+      color: #55c6a9;
+    }
+
+    header p {
+      color: #929ba9;
+      margin-bottom: 0;
+    }
+
+    main {
+      max-width: 750px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    .status {
+      background: #191e27;
+      padding: 15px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      line-height: 1.9;
+    }
+
+    .status span {
+      color: #55c6a9;
+    }
+
+    .chat {
+      min-height: 45vh;
+      max-height: 60vh;
+      padding: 15px;
+      background: #191e27;
+      border-radius: 12px;
+      overflow-y: auto;
+    }
+
+    .message {
+      padding: 13px;
+      margin: 12px 0;
+      border-radius: 12px;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .bot {
+      background: #29313d;
+    }
+
+    .user {
+      background: #155b4d;
+      margin-left: 25px;
+    }
+
+    .password-area {
+      margin-top: 15px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    input {
+      width: 100%;
+      min-width: 0;
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid #3c4654;
+      background: #191e27;
+      color: white;
+      font-size: 15px;
+    }
+
+    button {
+      background: #28a887;
+      color: white;
+      border: none;
+      padding: 14px 18px;
+      border-radius: 10px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .hint {
+      color: #8993a1;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    footer {
+      color: #8993a1;
+      font-size: 12px;
+      text-align: center;
+      padding: 20px;
+    }
+
+    @media (max-width: 480px) {
+      main {
+        padding: 14px;
+      }
+
+      .controls button {
+        padding: 12px;
+      }
+    }
+  </style>
 </head>
+
 <body>
 
-<header>
-<h2>✦ TAKU AI</h2>
-<p>Autonomous Gold Trading Intelligence</p>
-</header>
+  <header>
+    <h2>✦ TAKU AI</h2>
+    <p>Autonomous Gold Trading Intelligence</p>
+  </header>
 
-<main>
-<div class="status">
-<strong>Trading instrument:</strong> XAUUSD<br>
-<strong>Timeframe:</strong> M1<br>
-<strong>Connection:</strong> <span>Not connected</span><br>
-<strong>Trading status:</strong> Inactive
-</div>
+  <main>
 
-<div class="chat" id="chat">
-<div class="message bot">
-<strong>TAKU AI</strong><br>
-Hello! I'm your personal gold trading assistant. 
-I'm being configured around your trading rules.
-How can I help you today?
-</div>
-</div>
+    <div class="status">
+      <strong>Trading instrument:</strong> XAUUSD<br>
+      <strong>Timeframe:</strong> M1<br>
+      <strong>AI connection:</strong>
+      <span id="connectionStatus">Not tested</span><br>
+      <strong>Trading status:</strong> Inactive
+    </div>
 
-<div class="controls">
-<input id="message" placeholder="Message TAKU AI..." />
-<button onclick="sendMessage()">Send</button>
-</div>
-</main>
+    <div class="chat" id="chat" aria-live="polite">
+      <div class="message bot">
+        <strong>TAKU AI</strong><br>
+        Hello! I'm your personal gold trading assistant.
 
-<footer>
-TAKU AI © 2026 | Trading system prototype
-</footer>
+        I'm being configured around your trading rules.
 
-<script>
-function sendMessage() {
- const input = document.getElementById("message");
- const chat = document.getElementById("chat");
- if (!input.value.trim()) return;
+        I can help you analyse gold, understand market structure,
+        discuss trading setups and develop your trading system.
 
- const msg = document.createElement("div");
- msg.className = "message user";
- msg.textContent = input.value;
- chat.appendChild(msg);
- input.value = "";
+        I do not have live market data or MT5 trading access yet.
 
- const reply = document.createElement("div");
- reply.className = "message bot";
- reply.textContent = "Message received. AI connectivity is not yet configured. Your trading instructions will be integrated in a later development stage.";
- chat.appendChild(reply);
- chat.scrollTop = chat.scrollHeight;
-}
-</script>
+        How can I help you today?
+      </div>
+    </div>
+
+    <div class="password-area">
+      <input
+        id="accessPassword"
+        type="password"
+        placeholder="Enter your TAKU AI access password"
+        autocomplete="current-password"
+        aria-label="TAKU AI access password"
+      >
+      <div class="hint">
+        Your password is required to access your private AI assistant.
+      </div>
+    </div>
+
+    <div class="controls">
+      <input
+        id="message"
+        type="text"
+        placeholder="Message TAKU AI..."
+        aria-label="Your message"
+      >
+      <button id="sendButton" type="button">
+        Send
+      </button>
+    </div>
+
+  </main>
+
+  <footer>
+    TAKU AI © 2026 | AI Trading Assistant Prototype
+  </footer>
+
+  <script>
+    const conversation = [];
+
+    const input = document.getElementById("message");
+    const passwordInput = document.getElementById("accessPassword");
+    const button = document.getElementById("sendButton");
+    const chat = document.getElementById("chat");
+    const connectionStatus = document.getElementById("connectionStatus");
+
+    function addMessage(text, type) {
+      const div = document.createElement("div");
+      div.className = "message " + type;
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+      return div;
+    }
+
+    async function sendMessage() {
+      const message = input.value.trim();
+      const password = passwordInput.value;
+
+      if (!message) return;
+
+      if (!password) {
+        alert("Please enter your TAKU AI access password.");
+        passwordInput.focus();
+        return;
+      }
+
+      addMessage(message, "user");
+      input.value = "";
+
+      button.disabled = true;
+      button.textContent = "Thinking...";
+
+      const loading = addMessage(
+        "TAKU AI is thinking...",
+        "bot"
+      );
+
+      const userMessage = {
+        role: "user",
+        content: message
+      };
+
+      conversation.push(userMessage);
+
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + password
+          },
+          body: JSON.stringify({
+            messages: conversation.slice(-20)
+          })
+        });
+
+        const data = await response.json();
+
+        loading.remove();
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error("Incorrect access password.");
+          }
+
+          throw new Error(
+            data.details || data.error || "AI connection failed."
+          );
+        }
+
+        if (!data.reply) {
+          throw new Error("The AI returned an empty response.");
+        }
+
+        conversation.push({
+          role: "assistant",
+          content: data.reply
+        });
+
+        addMessage(data.reply, "bot");
+
+        connectionStatus.textContent = "Connected";
+
+      } catch (error) {
+        loading.remove();
+
+        conversation.pop();
+
+        addMessage(
+          "TAKU AI error: " + error.message,
+          "bot"
+        );
+
+        if (error.message.includes("password")) {
+          connectionStatus.textContent = "Authentication failed";
+        } else {
+          connectionStatus.textContent = "Connection error";
+        }
+
+      } finally {
+        button.disabled = false;
+        button.textContent = "Send";
+        input.focus();
+      }
+    }
+
+    button.addEventListener("click", sendMessage);
+
+    input.addEventListener("keydown", function(event) {
+      if (event.key === "Enter") {
+        sendMessage();
+      }
+    });
+  </script>
 
 </body>
 </html>
