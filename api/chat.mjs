@@ -30,11 +30,11 @@ export default {
     }
 
     try {
-      const apiKey = process.env.OPENAI_API_KEY;
+      const apiKey = process.env.GEMINI_API_KEY;
 
       if (!apiKey) {
         return new Response(
-          JSON.stringify({ error: "OpenAI API key is not configured." }),
+          JSON.stringify({ error: "Gemini API key is not configured." }),
           { status: 503, headers }
         );
       }
@@ -58,8 +58,8 @@ export default {
           typeof m.content === "string"
         )
         .map(m => ({
-          role: m.role,
-          content: m.content.slice(0, 4000)
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: m.content.slice(0, 4000) }]
         }));
 
       if (!messages.length) {
@@ -70,24 +70,28 @@ export default {
       }
 
       const result = await fetch(
-        "https://api.openai.com/v1/responses",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey}`
+            "x-goog-api-key": apiKey
           },
           body: JSON.stringify({
-            model: "gpt-6-astra",
-            instructions:
-              "You are TAKU AI, a helpful gold trading assistant. " +
-              "You specialise in XAUUSD analysis and trading education. " +
-              "You do not claim to see live market prices unless data is provided. " +
-              "You cannot execute trades or access MT5 yet. " +
-              "Never invent market data or claim a trade was placed.",
-            input: messages,
-            max_output_tokens: 700,
-            store: false
+            systemInstruction: {
+              parts: [{
+                text:
+                  "You are TAKU AI, a helpful gold trading assistant. " +
+                  "You specialise in XAUUSD analysis and trading education. " +
+                  "You do not claim to see live market prices unless data is provided. " +
+                  "You cannot execute trades or access MT5 yet. " +
+                  "Never invent market data or claim a trade was placed."
+              }]
+            },
+            contents: messages,
+            generationConfig: {
+              maxOutputTokens: 700
+            }
           })
         }
       );
@@ -97,18 +101,15 @@ export default {
       if (!result.ok) {
         return new Response(
           JSON.stringify({
-            error: "AI service request failed.",
+            error: "Gemini AI request failed.",
             details: data.error?.message || "Unknown API error."
           }),
           { status: result.status, headers }
         );
       }
 
-      const reply = (data.output || [])
-        .filter(item => item.type === "message")
-        .flatMap(item => item.content || [])
-        .filter(part => part.type === "output_text")
-        .map(part => part.text)
+      const reply = (data.candidates?.[0]?.content?.parts || [])
+        .map(part => part.text || "")
         .join("\n");
 
       return new Response(
@@ -120,7 +121,9 @@ export default {
 
     } catch (error) {
       return new Response(
-        JSON.stringify({ error: "Server error. Please try again." }),
+        JSON.stringify({
+          error: "Server error. Please try again."
+        }),
         { status: 500, headers }
       );
     }
