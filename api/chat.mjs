@@ -6,27 +6,42 @@ export default {
       "Cache-Control": "no-store"
     };
 
-    const send = (data, status = 200) =>
-      new Response(JSON.stringify(data), { status, headers });
-
     if (request.method !== "POST") {
-      return send({ error: "Method not allowed." }, 405);
+      return new Response(
+        JSON.stringify({ error: "Method not allowed" }),
+        { status: 405, headers }
+      );
     }
 
     const password = process.env.TAKU_CHAT_PASSWORD;
 
     if (!password) {
-      return send({ error: "Chat security is not configured." }, 503);
+      return new Response(
+        JSON.stringify({ error: "Chat security is not configured." }),
+        { status: 503, headers }
+      );
     }
 
     if (
       request.headers.get("authorization") !==
       `Bearer ${password}`
     ) {
-      return send({ error: "Unauthorized." }, 401);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized." }),
+        { status: 401, headers }
+      );
     }
 
     try {
+      const apiKey = process.env.GEMINI_API_KEY;
+
+      if (!apiKey) {
+        return new Response(
+          JSON.stringify({ error: "Gemini API key is not configured." }),
+          { status: 503, headers }
+        );
+      }
+
       const body = await request.json();
 
       if (
@@ -34,7 +49,10 @@ export default {
         body.messages.length === 0 ||
         body.messages.length > 20
       ) {
-        return send({ error: "Invalid messages." }, 400);
+        return new Response(
+          JSON.stringify({ error: "Invalid messages." }),
+          { status: 400, headers }
+        );
       }
 
       const messages = body.messages
@@ -44,175 +62,73 @@ export default {
         )
         .map(m => ({
           role: m.role === "assistant" ? "model" : "user",
-          content: m.content.slice(0, 4000)
+          parts: [{ text: m.content.slice(0, 4000) }]
         }));
 
-      while (messages.length && messages[0].role !== "user") {
-        messages.shift();
-      }
-
       if (!messages.length) {
-        return send({ error: "No valid user message." }, 400);
-      }
-
-      // Combine consecutive messages with the same role.
-      const conversation = [];
-
-      for (const message of messages) {
-        const previous = conversation[conversation.length - 1];
-
-        if (previous && previous.role === message.role) {
-          previous.content += "\n" + message.content;
-        } else {
-          conversation.push({ ...message });
-        }
-      }
-
-      const systemPrompt =
-        "You are TAKU AI, a helpful and knowledgeable gold and forex trading assistant. " +
-        "You specialise in XAUUSD, market structure, order blocks, BOS, CHoCH, " +
-        "entries, stop losses, take profits and risk management. " +
-        "Give clear, practical and honest answers. " +
-        "Never invent live market prices or claim to access MT5. " +
-        "Never claim to have executed a trade. " +
-        "If market data is not provided, explain that live data is unavailable.";
-
-      // STEP 1: TRY GOOGLE GEMINI FIRST.
-      const geminiKey = process.env.GEMINI_API_KEY;
-
-      let geminiError = "Gemini API key is not configured.";
-
-      if (geminiKey) {
-        try {
-          const geminiMessages = conversation.map(m => ({
-            role: m.role,
-            parts: [{ text: m.content }]
-          }));
-
-          const response = await fetch(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-goog-api-key": geminiKey.trim()
-              },
-              body: JSON.stringify({
-                systemInstruction: {
-                  parts: [{ text: systemPrompt }]
-                },
-                contents: geminiMessages,
-                generationConfig: {
-                  maxOutputTokens: 700
-                }
-              })
-            }
-          );
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(
-              data.error?.message || `Gemini error: ${response.status}`
-            );
-          }
-
-          const reply = (data.candidates?.[0]?.content?.parts || [])
-            .map(part => part.text || "")
-            .join("\n")
-            .trim();
-
-          if (!reply) {
-            throw new Error("Gemini returned an empty response.");
-          }
-
-          return send({
-            reply,
-            provider: "Gemini"
-          });
-
-        } catch (error) {
-          geminiError = error.message || "Gemini request failed.";
-          console.error("GEMINI ERROR:", geminiError);
-        }
-      }
-
-      // STEP 2: IF GEMINI FAILS, TRY OPENAI GPT.
-      const openaiKey = process.env.OPENAI_API_KEY;
-
-      if (!openaiKey) {
-        return send({
-          error: "Gemini failed and the GPT backup is not configured yet.",
-          geminiError,
-          backupStatus: "Add OPENAI_API_KEY when OpenAI billing is activated."
-        }, 503);
-      }
-
-      try {
-        const openaiMessages = [
-          {
-            role: "system",
-            content: systemPrompt
-          },
-          ...conversation.map(m => ({
-            role: m.role === "model" ? "assistant" : "user",
-            content: m.content
-          }))
-        ];
-
-        const response = await fetch(
-          "https://api.openai.com/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${openaiKey.trim()}`
-            },
-            body: JSON.stringify({
-              model: "gpt-4.1-mini",
-              messages: openaiMessages,
-              max_completion_tokens: 700
-            })
-          }
+        return new Response(
+          JSON.stringify({ error: "No valid messages." }),
+          { status: 400, headers }
         );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.error?.message || `OpenAI error: ${response.status}`
-          );
-        }
-
-        const reply = data.choices?.[0]?.message?.content?.trim();
-
-        if (!reply) {
-          throw new Error("OpenAI returned an empty response.");
-        }
-
-        return send({
-          reply,
-          provider: "OpenAI GPT",
-          fallback: true
-        });
-
-      } catch (error) {
-        console.error("OPENAI ERROR:", error.message);
-
-        return send({
-          error: "Both AI providers failed.",
-          geminiError,
-          openaiError: error.message
-        }, 502);
       }
+
+      const result = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey.trim()
+          },
+          body: JSON.stringify({
+            systemInstruction: {
+              parts: [{
+                text:
+                  "You are TAKU AI, a helpful gold trading assistant. " +
+                  "You specialise in XAUUSD analysis and trading education. " +
+                  "You do not claim to see live market prices unless data is provided. " +
+                  "You cannot execute trades or access MT5 yet. " +
+                  "Never invent market data or claim a trade was placed."
+              }]
+            },
+            contents: messages,
+            generationConfig: {
+              maxOutputTokens: 700
+            }
+          })
+        }
+      );
+
+      const data = await result.json();
+
+      if (!result.ok) {
+        return new Response(
+          JSON.stringify({
+            error: "Gemini AI request failed.",
+            details: data.error?.message || "Unknown API error."
+          }),
+          { status: result.status, headers }
+        );
+      }
+
+      const reply = (data.candidates?.[0]?.content?.parts || [])
+        .map(part => part.text || "")
+        .join("\n");
+
+      return new Response(
+        JSON.stringify({
+          reply: reply || "No response received."
+        }),
+        { status: 200, headers }
+      );
 
     } catch (error) {
-      console.error("TAKU AI SERVER ERROR:", error);
-
-      return send({
-        error: "Taku AI server error.",
-        details: error.message || "Unknown error."
-      }, 500);
+      return new Response(
+        JSON.stringify({
+          error: "Server error. Please try again."
+        }),
+        { status: 500, headers }
+      );
     }
   }
 };
