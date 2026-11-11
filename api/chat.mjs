@@ -37,10 +37,10 @@ export default {
     try {
       const apiKey = process.env.GEMINI_API_KEY;
 
-      if (!apiKey) {
+      if (!apiKey || !apiKey.trim()) {
         return new Response(
           JSON.stringify({
-            error: "Gemini API key is not configured."
+            error: "Gemini API key is missing."
           }),
           { status: 503, headers }
         );
@@ -59,7 +59,6 @@ export default {
         );
       }
 
-      // Validate and prepare conversation history.
       const messages = [];
 
       for (const message of body.messages) {
@@ -78,14 +77,12 @@ export default {
         const role =
           message.role === "assistant" ? "model" : "user";
 
-        // Gemini conversations must start with a user message.
         if (messages.length === 0 && role === "model") {
           continue;
         }
 
         const previous = messages[messages.length - 1];
 
-        // Combine consecutive messages with the same role.
         if (previous && previous.role === role) {
           previous.parts[0].text += "\n" + content;
         } else {
@@ -102,34 +99,36 @@ export default {
       ) {
         return new Response(
           JSON.stringify({
-            error: "Please send a new user message."
+            error: "Please send a new message."
           }),
           { status: 400, headers }
         );
       }
 
       const result = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-goog-api-key": apiKey
+            "x-goog-api-key": apiKey.trim()
           },
           body: JSON.stringify({
             systemInstruction: {
               parts: [{
                 text:
-                  "You are TAKU AI, a helpful and intelligent gold trading assistant. " +
-                  "You specialise in XAUUSD analysis, forex trading education, " +
-                  "market structure, order blocks, risk management and trading psychology. " +
-                  "Give clear, practical and professional answers. " +
-                  "Never invent live market prices or market data. " +
-                  "Only analyse live prices when the user provides them or a reliable " +
-                  "live data source is connected. " +
+                  "You are TAKU AI, an intelligent gold and forex trading assistant. " +
+                  "Your speciality is XAUUSD. " +
+                  "You help users understand market structure, order blocks, " +
+                  "breaks of structure, changes of character, entries, " +
+                  "stop losses, take profits and risk management. " +
+                  "You provide clear, practical and professional analysis. " +
+                  "Never invent live prices or market information. " +
+                  "Only analyse live market data when it is provided. " +
                   "You cannot execute trades or access MT5 yet. " +
-                  "Never claim that you have placed or executed a trade. " +
-                  "Always explain trading risks and avoid guaranteeing profits."
+                  "Never claim to have placed a trade. " +
+                  "Always explain trading risks. " +
+                  "Never guarantee profits."
               }]
             },
             contents: messages,
@@ -142,7 +141,6 @@ export default {
 
       const data = await result.json();
 
-      // Return the actual Gemini error instead of hiding it.
       if (!result.ok) {
         console.error("GEMINI API ERROR:", data);
 
@@ -152,7 +150,7 @@ export default {
             details:
               data.error?.message ||
               data.error?.status ||
-              "Unknown Gemini API error."
+              "Unknown Gemini error."
           }),
           { status: result.status, headers }
         );
@@ -166,18 +164,13 @@ export default {
         .trim();
 
       if (!reply) {
-        console.error(
-          "GEMINI EMPTY RESPONSE:",
-          JSON.stringify(data)
-        );
-
         return new Response(
           JSON.stringify({
-            error: "Gemini returned no text.",
+            error: "Gemini returned no response.",
             details:
               data.promptFeedback?.blockReason ||
               data.candidates?.[0]?.finishReason ||
-              "No response was generated."
+              "No text was generated."
           }),
           { status: 502, headers }
         );
@@ -194,7 +187,7 @@ export default {
       return new Response(
         JSON.stringify({
           error: "Taku AI server error.",
-          details: error.message || "Unknown server error."
+          details: error.message || "Unknown error."
         }),
         { status: 500, headers }
       );
